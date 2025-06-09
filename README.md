@@ -7,3 +7,4 @@ Scrapes trending TV personalities from Google Trends and analyzes their search p
    ```bash
    pip install -r requirements.txt
    python -m spacy download en_core_web_sm
+   python -m spacy download en_core_web_lg
