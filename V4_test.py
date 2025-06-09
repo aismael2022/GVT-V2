@@ -59,7 +59,7 @@ def load_spacy_model() -> Union[Language, None]:
             print(f"🔄 Loading {model_name}...")
             return spacy.load(model_name)
         except OSError:
-            print(f"⚠️ Downloading {model_name}...")
+            print(f"⚠️  Downloading {model_name}...")
             try:
                 subprocess.run(
                     [sys.executable, "-m", "spacy", "download", model_name],
@@ -69,7 +69,7 @@ def load_spacy_model() -> Union[Language, None]:
                 )
                 return spacy.load(model_name)
             except Exception as e:
-                print(f"⚠️ Download failed: {e}")
+                print(f"⚠️  Download failed: {e}")
                 continue
     
     print("❌ All model load attempts failed")
