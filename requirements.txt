@@ -6,6 +6,7 @@ spacy>=3.0.0
 transformers>=4.0.0
 selenium>=4.0.0
 webdriver-manager>=3.0.0
+pyfiglet>=0.8.post1
 
 # Spacy language models (will be downloaded automatically)
 # en_core_web_sm>=3.0.0
