@@ -4,6 +4,7 @@ import sys
 import time
 import random
 import datetime
+import wikipedia
 import warnings
 import pyfiglet
 import pandas as pd
@@ -11,6 +12,8 @@ import numpy as np
 from functools import lru_cache
 from langdetect import detect
 import spacy
+import requests
+from bs4 import BeautifulSoup
 from spacy.language import Language
 import subprocess
 from datetime import datetime
@@ -59,7 +62,7 @@ def load_spacy_model() -> Union[Language, None]:
             print(f"🔄 Loading {model_name}...")
             return spacy.load(model_name)
         except OSError:
-            print(f"⚠️  Downloading {model_name}...")
+            print(f"⚠️ Downloading {model_name}...")
             try:
                 subprocess.run(
                     [sys.executable, "-m", "spacy", "download", model_name],
@@ -69,7 +72,7 @@ def load_spacy_model() -> Union[Language, None]:
                 )
                 return spacy.load(model_name)
             except Exception as e:
-                print(f"⚠️  Download failed: {e}")
+                print(f"⚠️ Download failed: {e}")
                 continue
     
     print("❌ All model load attempts failed")
@@ -176,8 +179,38 @@ def scrape_trends(driver: webdriver.Chrome, timeout: int = 30, max_names: int = 
             
     return names
 
-def extract_search_result_with_tools_click(url: str) -> str:
-    """Extracts search results count from Google search with Tools click"""
+def get_wikipedia_summary(wiki_url: str) -> str:
+    """
+    Fetches multiple paragraphs from a Wikipedia page (intro content only),
+    preserving as much relevant summary information as possible (up to ~8 paragraphs).
+    """
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(wiki_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Select all top-level paragraphs within content area
+        paragraphs = soup.select("div.mw-parser-output > p")
+
+        full_text = ""
+        for para in paragraphs:
+            text = para.get_text(strip=True)
+            if text:
+                full_text += text + "\n\n"
+            # Stop if we've gathered a sufficient chunk (adjustable)
+            if len(full_text.split()) > 800:  # Roughly 600–900 words
+                break
+
+        return full_text.strip() if full_text else "Summary not available"
+    except Exception as e:
+        print(f"❌ Error fetching Wikipedia summary: {e}")
+        return "Summary not available"
+
+def extract_search_result_with_tools_click(url: str) -> Dict[str, Union[str, None]]:
+    """
+    Extract search result count, first Wikipedia link, and Wikipedia summary from Google search.
+    Returns a dict with 'result_count', 'wiki_url', and 'wiki_summary'.
+    """
     chrome_options = Options()
     chrome_options.add_argument("--window-size=1000,400")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
@@ -209,16 +242,38 @@ def extract_search_result_with_tools_click(url: str) -> str:
             EC.presence_of_element_located((By.ID, "result-stats"))
         )
         raw_text = result_stats.text
-        
-        # Extract number with regex
         match = re.search(r'About ([\d,]+)', raw_text)
-        if match:
-            return match.group(1).replace(",", "")
-        return "0"
-        
+        result_count = match.group(1).replace(",", "") if match else "0"
+
+        # Try extracting the first Wikipedia link from the results
+        wiki_url = "N/A"
+        summary = "Summary not available"
+        try:
+            wiki_element = driver.find_element(By.XPATH, "//a[contains(@href, 'wikipedia.org')]")
+            wiki_url = wiki_element.get_attribute("href")
+            if wiki_url:
+                print(f"📚 Wikipedia link found: {wiki_url}")
+                summary = get_wikipedia_summary(wiki_url)
+                print(f"📝 Wikipedia summary extracted (truncated): {summary[:100]}...")
+            else:
+                print("❌ Wikipedia URL empty or invalid.")
+        except Exception as e:
+            print(f"❌ Wikipedia link not found: {e}")
+
+        return {
+            "result_count": result_count,
+            "wiki_url": wiki_url,
+            "wiki_summary": summary
+        }
+
     except Exception as e:
-        print(f"⚠️ Search error on {url}: {str(e)[:100]}...")  # Truncate long error messages
-        return "N/A"
+        print(f"⚠️ Search error on {url}: {str(e)[:100]}...")
+        return {
+            "result_count": "N/A",
+            "wiki_url": "N/A",
+            "wiki_summary": "Summary not available"
+        }
+
     finally:
         if driver:
             driver.quit()
@@ -267,39 +322,42 @@ def stage_one_extract_and_save() -> str:
 
 # --------- Search Enrichment --------- #
 def stage_two_enrich_search_results(filename: str) -> None:
-    """Enhanced search enrichment with better error handling"""
     if not os.path.exists(filename):
         print(f"❌ File not found: {filename}")
         return
 
     try:
         df = pd.read_excel(filename)
-        
-        # Initialize Search Results column if needed
+
+        # Add columns if missing
         if "Search Results" not in df.columns:
             df["Search Results"] = np.nan
+        if "Wikipedia Link" not in df.columns:
+            df["Wikipedia Link"] = np.nan
+        if "Wiki_Summary" not in df.columns:
+            df["Wiki_Summary"] = np.nan  # NEW COLUMN
 
         total = len(df)
         for count, (idx, row) in enumerate(df.iterrows(), 1):
-            # Skip already processed rows
             if pd.notna(row["Search Results"]) and row["Search Results"] not in ["", "N/A"]:
                 print(f"✅ Row {count}/{total}: Already processed")
                 continue
 
             print(f"\n🔍 Processing {count}/{total}: {row['Name']}")
-            
-            # Skip non-person entries
+
             if not row['Is Person']:
                 df.at[idx, "Search Results"] = "Not a person - skipped"
+                df.at[idx, "Wikipedia Link"] = ""
+                df.at[idx, "Wiki_Summary"] = ""
                 df.to_excel(filename, index=False)
                 continue
-                
-            # Process search results
-            result = extract_search_result_with_tools_click(str(row['Link']))
-            df.at[idx, "Search Results"] = result
+
+            results = extract_search_result_with_tools_click(str(row['Link']))
+            df.at[idx, "Search Results"] = results.get("result_count", "N/A")
+            df.at[idx, "Wikipedia Link"] = results.get("wiki_url", "N/A")
+            df.at[idx, "Wiki_Summary"] = results.get("wiki_summary", "Summary not available")  # <-- Add summary here
             df.to_excel(filename, index=False)
-            
-            # Random delay between requests
+
             sleep_time = random.randint(5, 15)
             print(f"⏳ Sleeping {sleep_time} seconds...")
             time.sleep(sleep_time)
@@ -308,6 +366,7 @@ def stage_two_enrich_search_results(filename: str) -> None:
     except Exception as e:
         print(f"❌ Enrichment failed: {e}")
         
+             
 # --------- Main Execution --------- #
 if __name__ == "__main__":
     print("🌐 Loading Google Trends TV...")
