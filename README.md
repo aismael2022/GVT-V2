@@ -20,5 +20,5 @@ curl -s https://raw.githubusercontent.com/aismael2022/GVT-V2/main/Run_GTV_V2.sh 
 
 
 ### File saving
-- File will be saved automatically to your User directory with name and timestampe:
+- File will be saved automatically to your User directory with name and timestamp:
    **google_trends_tv_results_10_06_2025_12-37AM.xlsx**
