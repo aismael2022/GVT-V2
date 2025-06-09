@@ -5,6 +5,7 @@ import time
 import random
 import datetime
 import warnings
+import pyfiglet
 import pandas as pd
 import numpy as np
 from functools import lru_cache
@@ -13,7 +14,7 @@ import spacy
 from spacy.language import Language
 import subprocess
 from datetime import datetime
-from transformers import pipeline
+from transformers.pipelines import pipeline
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -51,7 +52,8 @@ def load_models() -> Dict[str, Union[Language, TransformerModel, None]]:
 def load_spacy_model() -> Union[Language, None]:
     """Load spaCy model with fallback logic."""
     model_names = ['en_core_web_lg', 'en_core_web_sm']
-    
+    ascii_art = pyfiglet.figlet_format("NOVA ClIP", font="standard")
+    print(ascii_art)
     for model_name in model_names:
         try:
             print(f"🔄 Loading {model_name}...")
