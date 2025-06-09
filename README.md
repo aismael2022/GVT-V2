@@ -1,4 +1,4 @@
-# 🚀 GVT-V2: Google Trends TV Personality Scraper
+# 🚀 GVT-V2: Google Trends TV Scraper
 
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 
