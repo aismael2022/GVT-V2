@@ -1,7 +1,7 @@
 # 🚀 GVT-V2: Google Trends TV Personality Scraper
 
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aismael2022/GVT-V2/blob/main/V4_test.py)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aismael2022/GVT-V2/blob/main/GVT-V2_Colab.ipynb)
 
 A powerful scraper that extracts trending TV personalities from Google Trends and analyzes their search popularity using NLP.
 
